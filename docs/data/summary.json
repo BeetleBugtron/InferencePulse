@@ -1,55 +1,71 @@
 {
   "project": "InferencePulse",
   "window": "24h",
-  "generated_at": "2026-10-04T18:00:18.238430Z",
+  "generated_at": "2026-10-04T18:16:02.327144Z",
   "providers": {
     "aihubmix": {
       "name": "AIHubMix",
       "model": "coding-glm-5.3-flash-free",
-      "checks": 5,
-      "successful_checks": 5,
+      "checks": 8,
+      "successful_checks": 8,
       "success_pct": 100.0,
       "rate_limited_checks": 0,
-      "median_latency_ms": 140,
-      "p95_latency_ms": 221,
+      "degraded_checks": 0,
+      "timeout_checks": 0,
+      "median_latency_ms": 147,
+      "p95_latency_ms": 204,
+      "observed_minutes": 8,
+      "coverage_pct": 0.56,
       "current_status": "up",
-      "last_check": "2026-10-04T17:59:48.218130Z"
+      "last_check": "2026-10-04T18:15:28.291906Z"
     },
     "unorouter": {
       "name": "UnoRouter",
       "model": "glm-5.3-flash:free",
-      "checks": 5,
-      "successful_checks": 1,
-      "success_pct": 20.0,
-      "rate_limited_checks": 1,
-      "median_latency_ms": 4924,
-      "p95_latency_ms": 4924,
-      "current_status": "rate_limited",
-      "last_check": "2026-10-04T17:59:48.218391Z"
+      "checks": 8,
+      "successful_checks": 2,
+      "success_pct": 25.0,
+      "rate_limited_checks": 2,
+      "degraded_checks": 2,
+      "timeout_checks": 2,
+      "median_latency_ms": 2843,
+      "p95_latency_ms": 4673,
+      "observed_minutes": 8,
+      "coverage_pct": 0.56,
+      "current_status": "timeout",
+      "last_check": "2026-10-04T18:15:28.292188Z"
     },
     "orcarouter": {
       "name": "OrcaRouter",
       "model": "z-ai/glm-5.3-flash-free",
-      "checks": 5,
-      "successful_checks": 5,
+      "checks": 8,
+      "successful_checks": 8,
       "success_pct": 100.0,
       "rate_limited_checks": 0,
-      "median_latency_ms": 2587,
-      "p95_latency_ms": 3625,
+      "degraded_checks": 0,
+      "timeout_checks": 0,
+      "median_latency_ms": 2804,
+      "p95_latency_ms": 3691,
+      "observed_minutes": 8,
+      "coverage_pct": 0.56,
       "current_status": "up",
-      "last_check": "2026-10-04T17:59:48.218594Z"
+      "last_check": "2026-10-04T18:15:28.292432Z"
     },
     "nvidia": {
       "name": "NVIDIA NIM",
       "model": "z-ai/glm-5.3-flash",
-      "checks": 5,
+      "checks": 8,
       "successful_checks": 0,
       "success_pct": 0.0,
       "rate_limited_checks": 0,
+      "degraded_checks": 0,
+      "timeout_checks": 8,
       "median_latency_ms": null,
       "p95_latency_ms": null,
+      "observed_minutes": 8,
+      "coverage_pct": 0.56,
       "current_status": "timeout",
-      "last_check": "2026-10-04T17:59:48.218949Z"
+      "last_check": "2026-10-04T18:15:28.292787Z"
     }
   }
 }

@@ -1,302 +1,311 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>InferencePulse</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>InferencePulse</title>
 
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #090b10;
-      --card: #121620;
-      --border: #252b38;
-      --text: #f5f7fb;
-      --muted: #8f9bad;
-      --green: #38d996;
-      --yellow: #f4c95d;
-      --red: #ff6678;
-      --blue: #6ea8ff;
-    }
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#090b10;
+  --card:#121620;
+  --border:#252b38;
+  --text:#f5f7fb;
+  --muted:#8f9bad;
+  --green:#38d996;
+  --yellow:#f4c95d;
+  --red:#ff6678;
+  --blue:#6ea8ff;
+}
 
-    * {
-      box-sizing: border-box;
-    }
+* { box-sizing:border-box; }
 
-    body {
-      margin: 0;
-      font-family:
-        Inter,
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
 
-    main {
-      width: min(1100px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 64px 0;
-    }
+main {
+  width:min(1150px,calc(100% - 32px));
+  margin:auto;
+  padding:64px 0;
+}
 
-    h1 {
-      font-size: clamp(36px, 6vw, 64px);
-      margin: 0;
-      letter-spacing: -0.04em;
-    }
+h1 {
+  margin:0;
+  font-size:clamp(40px,7vw,68px);
+  letter-spacing:-.05em;
+}
 
-    .subtitle {
-      color: var(--muted);
-      margin: 12px 0 40px;
-      font-size: 17px;
-    }
+.subtitle {
+  margin:12px 0 36px;
+  color:var(--muted);
+}
 
-    #overall {
-      border: 1px solid var(--border);
-      background: var(--card);
-      padding: 20px 24px;
-      border-radius: 14px;
-      margin-bottom: 20px;
-      font-weight: 700;
-    }
+.overall,
+.card {
+  border:1px solid var(--border);
+  background:var(--card);
+  border-radius:15px;
+}
 
-    .grid {
-      display: grid;
-      grid-template-columns:
-        repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-    }
+.overall {
+  padding:18px 22px;
+  margin-bottom:16px;
+  font-weight:800;
+}
 
-    .card {
-      border: 1px solid var(--border);
-      background: var(--card);
-      border-radius: 14px;
-      padding: 20px;
-    }
+.grid {
+  display:grid;
+  grid-template-columns:
+    repeat(auto-fit,minmax(240px,1fr));
+  gap:16px;
+}
 
-    .top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
+.card {
+  padding:20px;
+}
 
-    .name {
-      font-weight: 800;
-      font-size: 18px;
-    }
+.head,
+.row {
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+}
 
-    .status {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      font-weight: 900;
-    }
+.name {
+  font-weight:850;
+  font-size:18px;
+}
 
-    .up { color: var(--green); }
-    .rate_limited { color: var(--yellow); }
-    .degraded { color: var(--yellow); }
-    .timeout { color: var(--red); }
-    .down { color: var(--red); }
-    .auth_error { color: var(--red); }
-    .unknown { color: var(--muted); }
+.status {
+  text-transform:uppercase;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
 
-    .metric {
-      margin-top: 22px;
-      font-size: 32px;
-      font-weight: 900;
-      letter-spacing: -0.03em;
-    }
+.up { color:var(--green); }
+.rate_limited,
+.degraded { color:var(--yellow); }
+.down,
+.timeout,
+.auth_error { color:var(--red); }
 
-    .metric-label,
-    .small {
-      color: var(--muted);
-      font-size: 13px;
-    }
+.big {
+  margin-top:22px;
+  font-size:34px;
+  font-weight:900;
+}
 
-    .row {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 13px;
-      gap: 20px;
-    }
+.muted,
+.row span {
+  color:var(--muted);
+  font-size:13px;
+}
 
-    code {
-      color: var(--blue);
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
+.row {
+  margin-top:12px;
+}
 
-    footer {
-      color: var(--muted);
-      font-size: 13px;
-      margin-top: 40px;
-    }
-  </style>
+code {
+  display:block;
+  margin-top:18px;
+  color:var(--blue);
+  overflow-wrap:anywhere;
+  font-size:12px;
+}
+
+footer {
+  margin-top:32px;
+  color:var(--muted);
+  font-size:12px;
+}
+</style>
 </head>
 
 <body>
 <main>
-  <h1>InferencePulse</h1>
 
-  <div class="subtitle">
-    Live availability of free GLM-5.3-Flash inference routes.
-    Probed every minute from GitHub Actions.
-  </div>
+<h1>InferencePulse</h1>
 
-  <div id="overall">
-    Loading current status…
-  </div>
+<div class="subtitle">
+  Minute-resolution availability monitoring for free
+  GLM-5.3-Flash inference.
+</div>
 
-  <div class="grid" id="grid"></div>
+<div class="overall" id="overall">
+  Loading…
+</div>
 
-  <footer id="footer"></footer>
+<div class="grid" id="grid"></div>
+
+<footer id="footer"></footer>
+
 </main>
 
 <script>
-const esc = value =>
-  String(value ?? "—")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+const e = x =>
+  String(x ?? "—")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;");
 
 async function load() {
-  const [currentResponse, summaryResponse] =
+
+  const stamp = Date.now();
+
+  const [cr,sr] =
     await Promise.all([
       fetch(
-        "data/current.json?x=" + Date.now()
+        `data/current.json?${stamp}`
       ),
       fetch(
-        "data/summary.json?x=" + Date.now()
+        `data/summary.json?${stamp}`
       )
     ]);
 
   const current =
-    await currentResponse.json();
+    await cr.json();
 
   const summary =
-    await summaryResponse.json();
-
-  const providers =
-    summary.providers || {};
-
-  const latest =
-    current.providers || {};
+    await sr.json();
 
   const ids =
-    Object.keys(providers);
+    Object.keys(
+      summary.providers || {}
+    );
 
   const up =
     ids.filter(
       id =>
-        latest[id]?.status === "up"
+        current.providers?.[id]
+          ?.status === "up"
     ).length;
 
-  document.querySelector("#overall").innerHTML =
-    `<span class="${up === ids.length ? "up" : "degraded"}">
-      ${up}/${ids.length} providers responding
-    </span>`;
+  document.querySelector(
+    "#overall"
+  ).innerHTML =
+    `<span class="${
+      up === ids.length
+        ? "up"
+        : "degraded"
+    }">${up}/${ids.length} currently up</span>`;
 
-  document.querySelector("#grid").innerHTML =
+
+  document.querySelector(
+    "#grid"
+  ).innerHTML =
     ids.map(id => {
-      const s = providers[id];
-      const c = latest[id] || {};
 
-      const success =
-        s.success_pct == null
-          ? "—"
-          : `${s.success_pct}%`;
+      const s =
+        summary.providers[id];
 
-      const latency =
-        c.latency_ms == null
-          ? "—"
-          : `${c.latency_ms} ms`;
-
-      const status =
-        c.status || "unknown";
+      const c =
+        current.providers?.[id] || {};
 
       return `
-        <section class="card">
-          <div class="top">
-            <div class="name">
-              ${esc(s.name)}
-            </div>
+      <section class="card">
 
-            <div class="status ${esc(status)}">
-              ${esc(status.replaceAll("_", " "))}
-            </div>
+        <div class="head">
+          <div class="name">
+            ${e(s.name)}
           </div>
 
-          <div class="metric">
-            ${esc(success)}
+          <div class="status ${e(c.status)}">
+            ${e(
+              (c.status || "unknown")
+                .replaceAll("_"," ")
+            )}
           </div>
+        </div>
 
-          <div class="metric-label">
-            successful inference checks · 24h
-          </div>
+        <div class="big">
+          ${
+            s.success_pct == null
+              ? "—"
+              : e(s.success_pct + "%")
+          }
+        </div>
 
-          <div class="row">
-            <span class="small">
-              Current latency
-            </span>
-            <strong>${esc(latency)}</strong>
-          </div>
+        <div class="muted">
+          successful inference · last 24h
+        </div>
 
-          <div class="row">
-            <span class="small">
-              Median
-            </span>
-            <strong>
-              ${
-                s.median_latency_ms == null
-                  ? "—"
-                  : esc(s.median_latency_ms + " ms")
-              }
-            </strong>
-          </div>
+        <div class="row">
+          <span>Latest latency</span>
+          <strong>
+            ${
+              c.latency_ms == null
+                ? "—"
+                : e(c.latency_ms + " ms")
+            }
+          </strong>
+        </div>
 
-          <div class="row">
-            <span class="small">
-              P95
-            </span>
-            <strong>
-              ${
-                s.p95_latency_ms == null
-                  ? "—"
-                  : esc(s.p95_latency_ms + " ms")
-              }
-            </strong>
-          </div>
+        <div class="row">
+          <span>Median</span>
+          <strong>
+            ${
+              s.median_latency_ms == null
+                ? "—"
+                : e(
+                    s.median_latency_ms
+                    + " ms"
+                  )
+            }
+          </strong>
+        </div>
 
-          <div class="row">
-            <span class="small">
-              Checks
-            </span>
-            <strong>${esc(s.checks)}</strong>
-          </div>
+        <div class="row">
+          <span>P95</span>
+          <strong>
+            ${
+              s.p95_latency_ms == null
+                ? "—"
+                : e(
+                    s.p95_latency_ms
+                    + " ms"
+                  )
+            }
+          </strong>
+        </div>
 
-          <div class="row">
-            <span class="small">
-              Rate limited
-            </span>
-            <strong>
-              ${esc(s.rate_limited_checks)}
-            </strong>
-          </div>
+        <div class="row">
+          <span>Minute coverage</span>
+          <strong>
+            ${e(s.coverage_pct + "%")}
+          </strong>
+        </div>
 
-          <div style="margin-top:18px">
-            <code>${esc(s.model)}</code>
-          </div>
-        </section>
-      `;
-    }).join("");
+        <div class="row">
+          <span>Rate limited</span>
+          <strong>
+            ${e(s.rate_limited_checks)}
+          </strong>
+        </div>
 
-  document.querySelector("#footer").textContent =
-    "Last generated: " +
+        <code>${e(s.model)}</code>
+
+      </section>`;
+    })
+    .join("");
+
+
+  document.querySelector(
+    "#footer"
+  ).textContent =
+    "Updated " +
     new Date(
       current.generated_at
     ).toLocaleString();
