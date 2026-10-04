@@ -1,0 +1,72 @@
+{
+  "project": "InferencePulse",
+  "generated_at": "2026-10-04T18:00:18.237818Z",
+  "providers": {
+    "aihubmix": {
+      "ts": "2026-10-04T17:59:48.218130Z",
+      "provider": "aihubmix",
+      "name": "AIHubMix",
+      "requested_model": "coding-glm-5.3-flash-free",
+      "actual_model": "coding-glm-5.3-flash-free",
+      "status": "up",
+      "http": 200,
+      "latency_ms": 144,
+      "ttfb_ms": 143,
+      "retry_after": null,
+      "rate_limit_limit": null,
+      "rate_limit_remaining": null,
+      "rate_limit_reset": null,
+      "error_code": null
+    },
+    "unorouter": {
+      "ts": "2026-10-04T17:59:48.218391Z",
+      "provider": "unorouter",
+      "name": "UnoRouter",
+      "requested_model": "glm-5.3-flash:free",
+      "actual_model": null,
+      "status": "rate_limited",
+      "http": 429,
+      "latency_ms": 362,
+      "ttfb_ms": 362,
+      "retry_after": 1,
+      "rate_limit_limit": 1,
+      "rate_limit_remaining": 0,
+      "rate_limit_reset": 1791136789,
+      "error_code": "",
+      "error_message": "Too many requests. The free tier allows 1 request(s) every 1 min per account on glm-5.3-flash:free - nothing is used up, retry in 1s. The paid glm-5.3-flash has no per-minute limit. (request id: 202610041759485184754998268d9d6lLFrTuEe)"
+    },
+    "orcarouter": {
+      "ts": "2026-10-04T17:59:48.218594Z",
+      "provider": "orcarouter",
+      "name": "OrcaRouter",
+      "requested_model": "z-ai/glm-5.3-flash-free",
+      "actual_model": "glm-5.3-flash",
+      "status": "up",
+      "http": 200,
+      "latency_ms": 2697,
+      "ttfb_ms": 2697,
+      "retry_after": null,
+      "rate_limit_limit": null,
+      "rate_limit_remaining": null,
+      "rate_limit_reset": null,
+      "error_code": null
+    },
+    "nvidia": {
+      "ts": "2026-10-04T17:59:48.218949Z",
+      "provider": "nvidia",
+      "name": "NVIDIA NIM",
+      "requested_model": "z-ai/glm-5.3-flash",
+      "actual_model": null,
+      "status": "timeout",
+      "http": null,
+      "latency_ms": 30002,
+      "ttfb_ms": 0,
+      "retry_after": null,
+      "rate_limit_limit": null,
+      "rate_limit_remaining": null,
+      "rate_limit_reset": null,
+      "error_code": null,
+      "curl_exit": 28
+    }
+  }
+}

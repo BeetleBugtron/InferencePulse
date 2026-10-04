@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>InferencePulse</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b10;
+      --card: #121620;
+      --border: #252b38;
+      --text: #f5f7fb;
+      --muted: #8f9bad;
+      --green: #38d996;
+      --yellow: #f4c95d;
+      --red: #ff6678;
+      --blue: #6ea8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(1100px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 64px 0;
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      margin: 0;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin: 12px 0 40px;
+      font-size: 17px;
+    }
+
+    #overall {
+      border: 1px solid var(--border);
+      background: var(--card);
+      padding: 20px 24px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .name {
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .status {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 900;
+    }
+
+    .up { color: var(--green); }
+    .rate_limited { color: var(--yellow); }
+    .degraded { color: var(--yellow); }
+    .timeout { color: var(--red); }
+    .down { color: var(--red); }
+    .auth_error { color: var(--red); }
+    .unknown { color: var(--muted); }
+
+    .metric {
+      margin-top: 22px;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .metric-label,
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 13px;
+      gap: 20px;
+    }
+
+    code {
+      color: var(--blue);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <h1>InferencePulse</h1>
+
+  <div class="subtitle">
+    Live availability of free GLM-5.3-Flash inference routes.
+    Probed every minute from GitHub Actions.
+  </div>
+
+  <div id="overall">
+    Loading current status…
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer id="footer"></footer>
+</main>
+
+<script>
+const esc = value =>
+  String(value ?? "—")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+async function load() {
+  const [currentResponse, summaryResponse] =
+    await Promise.all([
+      fetch(
+        "data/current.json?x=" + Date.now()
+      ),
+      fetch(
+        "data/summary.json?x=" + Date.now()
+      )
+    ]);
+
+  const current =
+    await currentResponse.json();
+
+  const summary =
+    await summaryResponse.json();
+
+  const providers =
+    summary.providers || {};
+
+  const latest =
+    current.providers || {};
+
+  const ids =
+    Object.keys(providers);
+
+  const up =
+    ids.filter(
+      id =>
+        latest[id]?.status === "up"
+    ).length;
+
+  document.querySelector("#overall").innerHTML =
+    `<span class="${up === ids.length ? "up" : "degraded"}">
+      ${up}/${ids.length} providers responding
+    </span>`;
+
+  document.querySelector("#grid").innerHTML =
+    ids.map(id => {
+      const s = providers[id];
+      const c = latest[id] || {};
+
+      const success =
+        s.success_pct == null
+          ? "—"
+          : `${s.success_pct}%`;
+
+      const latency =
+        c.latency_ms == null
+          ? "—"
+          : `${c.latency_ms} ms`;
+
+      const status =
+        c.status || "unknown";
+
+      return `
+        <section class="card">
+          <div class="top">
+            <div class="name">
+              ${esc(s.name)}
+            </div>
+
+            <div class="status ${esc(status)}">
+              ${esc(status.replaceAll("_", " "))}
+            </div>
+          </div>
+
+          <div class="metric">
+            ${esc(success)}
+          </div>
+
+          <div class="metric-label">
+            successful inference checks · 24h
+          </div>
+
+          <div class="row">
+            <span class="small">
+              Current latency
+            </span>
+            <strong>${esc(latency)}</strong>
+          </div>
+
+          <div class="row">
+            <span class="small">
+              Median
+            </span>
+            <strong>
+              ${
+                s.median_latency_ms == null
+                  ? "—"
+                  : esc(s.median_latency_ms + " ms")
+              }
+            </strong>
+          </div>
+
+          <div class="row">
+            <span class="small">
+              P95
+            </span>
+            <strong>
+              ${
+                s.p95_latency_ms == null
+                  ? "—"
+                  : esc(s.p95_latency_ms + " ms")
+              }
+            </strong>
+          </div>
+
+          <div class="row">
+            <span class="small">
+              Checks
+            </span>
+            <strong>${esc(s.checks)}</strong>
+          </div>
+
+          <div class="row">
+            <span class="small">
+              Rate limited
+            </span>
+            <strong>
+              ${esc(s.rate_limited_checks)}
+            </strong>
+          </div>
+
+          <div style="margin-top:18px">
+            <code>${esc(s.model)}</code>
+          </div>
+        </section>
+      `;
+    }).join("");
+
+  document.querySelector("#footer").textContent =
+    "Last generated: " +
+    new Date(
+      current.generated_at
+    ).toLocaleString();
+}
+
+load();
+
+setInterval(
+  load,
+  60_000
+);
+</script>
+
+</body>
+</html>
