@@ -1,71 +1,482 @@
 {
   "project": "InferencePulse",
-  "window": "24h",
-  "generated_at": "2026-10-04T22:28:45.176290Z",
+  "window": "24h + all-time SLO evidence",
+  "generated_at": "2026-10-04T22:33:03.230884Z",
+  "headline": {
+    "predicted_reliable_qph": 44.47,
+    "providers_meeting_slo": 1,
+    "provider_count": 4,
+    "historical_measurements": 268
+  },
+  "slo_policy": {
+    "success_pct": 99.0,
+    "rate_limited_pct": 1.0,
+    "timeout_pct": 1.0,
+    "p95_latency_ms": 5000,
+    "note": "InferencePulse objectives; objective source is shown per provider."
+  },
   "providers": {
     "aihubmix": {
       "name": "AIHubMix",
       "model": "coding-glm-5.3-flash-free",
-      "checks": 63,
-      "successful_checks": 63,
+      "checks": 67,
+      "successful_checks": 67,
       "success_pct": 100.0,
       "rate_limited_checks": 0,
       "degraded_checks": 0,
       "timeout_checks": 0,
-      "median_latency_ms": 120,
-      "p95_latency_ms": 168,
-      "observed_minutes": 63,
-      "coverage_pct": 4.38,
+      "median_latency_ms": 124,
+      "p95_latency_ms": 204,
+      "observed_minutes": 67,
+      "coverage_pct": 4.65,
+      "objective": {
+        "label": "5 RPM / 100 RPD",
+        "sustainable_qph": 4.166666666666667,
+        "source": "published"
+      },
+      "tested_qph": 27.0,
+      "predicted_reliable_qph": 4.17,
+      "all_time_checks": 67,
+      "all_time_success_pct": 100.0,
+      "all_time_429_pct": 0.0,
+      "all_time_timeout_pct": 0.0,
+      "all_time_p95_latency_ms": 204,
+      "slo": {
+        "success": {
+          "target": ">= 99%",
+          "actual": 100.0,
+          "pass": true
+        },
+        "rate_limit": {
+          "target": "<= 1%",
+          "actual": 0.0,
+          "pass": true
+        },
+        "timeout": {
+          "target": "<= 1%",
+          "actual": 0.0,
+          "pass": true
+        },
+        "p95_latency": {
+          "target": "< 5000 ms",
+          "actual": 204,
+          "pass": true
+        }
+      },
+      "meets_slo": true,
+      "rate_limit_incidents": {
+        "count": 0,
+        "median_duration_seconds": null,
+        "p95_duration_seconds": null,
+        "longest_duration_seconds": null,
+        "incidents": []
+      },
+      "timeout_incidents": {
+        "count": 0,
+        "median_duration_seconds": null,
+        "p95_duration_seconds": null,
+        "longest_duration_seconds": null,
+        "incidents": []
+      },
       "current_status": "up",
-      "last_check": "2026-10-04T22:28:01.586108Z"
+      "last_check": "2026-10-04T22:32:27.790870Z"
     },
     "unorouter": {
       "name": "UnoRouter",
       "model": "glm-5.3-flash:free",
-      "checks": 63,
-      "successful_checks": 36,
-      "success_pct": 57.14,
-      "rate_limited_checks": 17,
+      "checks": 67,
+      "successful_checks": 39,
+      "success_pct": 58.21,
+      "rate_limited_checks": 18,
       "degraded_checks": 6,
       "timeout_checks": 4,
-      "median_latency_ms": 581,
+      "median_latency_ms": 563,
       "p95_latency_ms": 7322,
-      "observed_minutes": 63,
-      "coverage_pct": 4.38,
-      "current_status": "rate_limited",
-      "last_check": "2026-10-04T22:28:01.586294Z"
+      "observed_minutes": 67,
+      "coverage_pct": 4.65,
+      "objective": {
+        "label": "~1 RPM",
+        "sustainable_qph": 60,
+        "source": "published"
+      },
+      "tested_qph": 27.0,
+      "predicted_reliable_qph": 15.72,
+      "all_time_checks": 67,
+      "all_time_success_pct": 58.21,
+      "all_time_429_pct": 26.87,
+      "all_time_timeout_pct": 5.97,
+      "all_time_p95_latency_ms": 7322,
+      "slo": {
+        "success": {
+          "target": ">= 99%",
+          "actual": 58.21,
+          "pass": false
+        },
+        "rate_limit": {
+          "target": "<= 1%",
+          "actual": 26.87,
+          "pass": false
+        },
+        "timeout": {
+          "target": "<= 1%",
+          "actual": 5.97,
+          "pass": false
+        },
+        "p95_latency": {
+          "target": "< 5000 ms",
+          "actual": 7322,
+          "pass": false
+        }
+      },
+      "meets_slo": false,
+      "rate_limit_incidents": {
+        "count": 15,
+        "median_duration_seconds": 60,
+        "p95_duration_seconds": 121,
+        "longest_duration_seconds": 179,
+        "incidents": [
+          {
+            "start": "2026-10-04T18:11:28.291655Z",
+            "end": "2026-10-04T18:11:28.291655Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:13:28.291883Z",
+            "end": "2026-10-04T18:13:28.291883Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:24:25.560666Z",
+            "end": "2026-10-04T18:24:25.560666Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:28:25.561195Z",
+            "end": "2026-10-04T18:28:25.561195Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:14:55.636204Z",
+            "end": "2026-10-04T21:14:55.636204Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:19:50.801184Z",
+            "end": "2026-10-04T21:19:50.801184Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:44:29.429012Z",
+            "end": "2026-10-04T21:44:29.429012Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:51:38.632997Z",
+            "end": "2026-10-04T21:51:38.632997Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:58:32.050792Z",
+            "end": "2026-10-04T21:58:32.050792Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:01:04.826392Z",
+            "end": "2026-10-04T22:01:04.826392Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:07:04.827118Z",
+            "end": "2026-10-04T22:07:04.827118Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:17:06.396665Z",
+            "end": "2026-10-04T22:17:06.396665Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:20:06.397075Z",
+            "end": "2026-10-04T22:21:08.143218Z",
+            "duration_seconds": 121,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T22:23:08.143538Z",
+            "end": "2026-10-04T22:24:08.143784Z",
+            "duration_seconds": 120,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T22:29:27.791287Z",
+            "end": "2026-10-04T22:31:27.791262Z",
+            "duration_seconds": 179,
+            "checks": 2
+          }
+        ]
+      },
+      "timeout_incidents": {
+        "count": 4,
+        "median_duration_seconds": 60,
+        "p95_duration_seconds": 60,
+        "longest_duration_seconds": 60,
+        "incidents": [
+          {
+            "start": "2026-10-04T18:08:28.291127Z",
+            "end": "2026-10-04T18:08:28.291127Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:15:28.292188Z",
+            "end": "2026-10-04T18:15:28.292188Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:23:25.560553Z",
+            "end": "2026-10-04T18:23:25.560553Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T18:27:25.561008Z",
+            "end": "2026-10-04T18:27:25.561008Z",
+            "duration_seconds": 60,
+            "checks": 1
+          }
+        ]
+      },
+      "current_status": "up",
+      "last_check": "2026-10-04T22:32:27.791133Z"
     },
     "orcarouter": {
       "name": "OrcaRouter",
       "model": "z-ai/glm-5.3-flash-free",
-      "checks": 63,
+      "checks": 67,
       "successful_checks": 20,
-      "success_pct": 31.75,
-      "rate_limited_checks": 43,
+      "success_pct": 29.85,
+      "rate_limited_checks": 47,
       "degraded_checks": 0,
       "timeout_checks": 0,
       "median_latency_ms": 2884,
       "p95_latency_ms": 4638,
-      "observed_minutes": 63,
-      "coverage_pct": 4.38,
+      "observed_minutes": 67,
+      "coverage_pct": 4.65,
+      "objective": {
+        "label": "1 RPM test objective; numeric limit unknown",
+        "sustainable_qph": 60,
+        "source": "inferencepulse"
+      },
+      "tested_qph": 27.0,
+      "predicted_reliable_qph": 8.06,
+      "all_time_checks": 67,
+      "all_time_success_pct": 29.85,
+      "all_time_429_pct": 70.15,
+      "all_time_timeout_pct": 0.0,
+      "all_time_p95_latency_ms": 4638,
+      "slo": {
+        "success": {
+          "target": ">= 99%",
+          "actual": 29.85,
+          "pass": false
+        },
+        "rate_limit": {
+          "target": "<= 1%",
+          "actual": 70.15,
+          "pass": false
+        },
+        "timeout": {
+          "target": "<= 1%",
+          "actual": 0.0,
+          "pass": true
+        },
+        "p95_latency": {
+          "target": "< 5000 ms",
+          "actual": 4638,
+          "pass": true
+        }
+      },
+      "meets_slo": false,
+      "rate_limit_incidents": {
+        "count": 4,
+        "median_duration_seconds": 641,
+        "p95_duration_seconds": 1161,
+        "longest_duration_seconds": 1161,
+        "incidents": [
+          {
+            "start": "2026-10-04T21:17:50.801273Z",
+            "end": "2026-10-04T21:22:18.996848Z",
+            "duration_seconds": 328,
+            "checks": 6
+          },
+          {
+            "start": "2026-10-04T21:41:48.411852Z",
+            "end": "2026-10-04T21:51:29.430320Z",
+            "duration_seconds": 641,
+            "checks": 11
+          },
+          {
+            "start": "2026-10-04T21:57:32.050750Z",
+            "end": "2026-10-04T22:07:04.827484Z",
+            "duration_seconds": 632,
+            "checks": 11
+          },
+          {
+            "start": "2026-10-04T22:14:06.396316Z",
+            "end": "2026-10-04T22:32:27.791667Z",
+            "duration_seconds": 1161,
+            "checks": 19
+          }
+        ]
+      },
+      "timeout_incidents": {
+        "count": 0,
+        "median_duration_seconds": null,
+        "p95_duration_seconds": null,
+        "longest_duration_seconds": null,
+        "incidents": []
+      },
       "current_status": "rate_limited",
-      "last_check": "2026-10-04T22:28:08.144483Z"
+      "last_check": "2026-10-04T22:32:27.791667Z"
     },
     "nvidia": {
       "name": "NVIDIA NIM",
       "model": "z-ai/glm-5.3-flash",
-      "checks": 63,
+      "checks": 67,
       "successful_checks": 41,
-      "success_pct": 65.08,
+      "success_pct": 61.19,
       "rate_limited_checks": 0,
       "degraded_checks": 0,
-      "timeout_checks": 22,
+      "timeout_checks": 26,
       "median_latency_ms": 2789,
       "p95_latency_ms": 18329,
-      "observed_minutes": 63,
-      "coverage_pct": 4.38,
-      "current_status": "up",
-      "last_check": "2026-10-04T22:28:01.586979Z"
+      "observed_minutes": 67,
+      "coverage_pct": 4.65,
+      "objective": {
+        "label": "40 RPM; capacity capped by tested load",
+        "sustainable_qph": 2400,
+        "source": "published"
+      },
+      "tested_qph": 27.0,
+      "predicted_reliable_qph": 16.52,
+      "all_time_checks": 67,
+      "all_time_success_pct": 61.19,
+      "all_time_429_pct": 0.0,
+      "all_time_timeout_pct": 38.81,
+      "all_time_p95_latency_ms": 18329,
+      "slo": {
+        "success": {
+          "target": ">= 99%",
+          "actual": 61.19,
+          "pass": false
+        },
+        "rate_limit": {
+          "target": "<= 1%",
+          "actual": 0.0,
+          "pass": true
+        },
+        "timeout": {
+          "target": "<= 1%",
+          "actual": 38.81,
+          "pass": false
+        },
+        "p95_latency": {
+          "target": "< 5000 ms",
+          "actual": 18329,
+          "pass": false
+        }
+      },
+      "meets_slo": false,
+      "rate_limit_incidents": {
+        "count": 0,
+        "median_duration_seconds": null,
+        "p95_duration_seconds": null,
+        "longest_duration_seconds": null,
+        "incidents": []
+      },
+      "timeout_incidents": {
+        "count": 10,
+        "median_duration_seconds": 119,
+        "p95_duration_seconds": 480,
+        "longest_duration_seconds": 480,
+        "incidents": [
+          {
+            "start": "2026-10-04T18:08:28.291501Z",
+            "end": "2026-10-04T18:15:28.292787Z",
+            "duration_seconds": 480,
+            "checks": 8
+          },
+          {
+            "start": "2026-10-04T21:21:18.998657Z",
+            "end": "2026-10-04T21:22:18.997454Z",
+            "duration_seconds": 119,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T21:41:48.412119Z",
+            "end": "2026-10-04T21:41:48.412119Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T21:45:48.413053Z",
+            "end": "2026-10-04T21:46:38.632772Z",
+            "duration_seconds": 110,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T21:49:38.632894Z",
+            "end": "2026-10-04T21:51:38.633924Z",
+            "duration_seconds": 180,
+            "checks": 3
+          },
+          {
+            "start": "2026-10-04T21:57:32.050874Z",
+            "end": "2026-10-04T21:58:32.051207Z",
+            "duration_seconds": 120,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T22:03:04.827429Z",
+            "end": "2026-10-04T22:04:32.052016Z",
+            "duration_seconds": 147,
+            "checks": 2
+          },
+          {
+            "start": "2026-10-04T22:07:04.828234Z",
+            "end": "2026-10-04T22:07:04.828234Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:18:06.397364Z",
+            "end": "2026-10-04T22:18:06.397364Z",
+            "duration_seconds": 60,
+            "checks": 1
+          },
+          {
+            "start": "2026-10-04T22:29:27.792229Z",
+            "end": "2026-10-04T22:32:27.792286Z",
+            "duration_seconds": 240,
+            "checks": 4
+          }
+        ]
+      },
+      "current_status": "timeout",
+      "last_check": "2026-10-04T22:32:27.792286Z"
     }
   }
 }
