@@ -1,0 +1,1101 @@
+name: InferencePulse
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions minimum schedule interval is 5 minutes.
+    # This workflow stays alive and probes at minutes 0,1,2,3,4.
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: inferencepulse
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+      UNOROUTER_API_KEY: ${{ secrets.UNOROUTER_API_KEY }}
+      ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Run 5 one-minute heartbeat cycles
+        shell: bash
+        run: |
+          mkdir -p docs/data/history
+
+          cat > /tmp/inferencepulse.py <<'PY'
+          import os
+          import json
+          import time
+          import tempfile
+          import subprocess
+          from datetime import datetime, timezone, timedelta
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+          from pathlib import Path
+
+
+          # ============================================================
+          # CONFIG
+          # ============================================================
+
+          ROOT = Path("docs")
+          DATA = ROOT / "data"
+          HISTORY = DATA / "history"
+
+          CURRENT_FILE = DATA / "current.json"
+          SUMMARY_FILE = DATA / "summary.json"
+
+          CYCLES = 5
+          SECONDS_BETWEEN_CYCLES = 60
+
+          CONNECT_TIMEOUT = 10
+          REQUEST_TIMEOUT = 30
+
+
+          PROVIDERS = [
+              {
+                  "id": "aihubmix",
+                  "name": "AIHubMix",
+                  "url": "https://aihubmix.com/v1/chat/completions",
+                  "model": "coding-glm-5.3-flash-free",
+                  "key": os.environ.get("AIHUBMIX_API_KEY", ""),
+              },
+              {
+                  "id": "unorouter",
+                  "name": "UnoRouter",
+                  "url": "https://api.unorouter.com/v1/chat/completions",
+                  "model": "glm-5.3-flash:free",
+                  "key": os.environ.get("UNOROUTER_API_KEY", ""),
+              },
+              {
+                  "id": "orcarouter",
+                  "name": "OrcaRouter",
+                  "url": "https://api.orcarouter.ai/v1/chat/completions",
+                  "model": "z-ai/glm-5.3-flash-free",
+                  "key": os.environ.get("ORCAROUTER_API_KEY", ""),
+              },
+              {
+                  "id": "nvidia",
+                  "name": "NVIDIA NIM",
+                  "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+                  "model": "z-ai/glm-5.3-flash",
+                  "key": os.environ.get("NVIDIA_API_KEY", ""),
+              },
+          ]
+
+
+          # ============================================================
+          # HELPERS
+          # ============================================================
+
+          def utcnow():
+              return datetime.now(timezone.utc)
+
+
+          def iso_now():
+              return utcnow().isoformat().replace("+00:00", "Z")
+
+
+          def safe_float(value):
+              try:
+                  return float(value)
+              except Exception:
+                  return None
+
+
+          def safe_int(value):
+              try:
+                  return int(value)
+              except Exception:
+                  return None
+
+
+          def parse_headers(raw):
+              result = {}
+
+              # There can be multiple HTTP header blocks.
+              # Last occurrence wins.
+              for line in raw.splitlines():
+                  if ":" not in line:
+                      continue
+
+                  key, value = line.split(":", 1)
+                  result[key.strip().lower()] = value.strip()
+
+              return result
+
+
+          def classify(http, error_code, error_message):
+              text = f"{error_code or ''} {error_message or ''}".lower()
+
+              if http == 200:
+                  return "up"
+
+              if http == 429:
+                  if "empty_response" in text:
+                      return "degraded"
+                  return "rate_limited"
+
+              if http == 503:
+                  return "down"
+
+              if http in (401, 403):
+                  return "auth_error"
+
+              if http in (None, 0):
+                  return "timeout"
+
+              return "degraded"
+
+
+          # ============================================================
+          # SINGLE PROVIDER PROBE
+          # ============================================================
+
+          def probe(provider):
+              ts = iso_now()
+
+              if not provider["key"]:
+                  return {
+                      "ts": ts,
+                      "provider": provider["id"],
+                      "name": provider["name"],
+                      "requested_model": provider["model"],
+                      "status": "missing_secret",
+                      "http": None,
+                      "latency_ms": None,
+                      "ttfb_ms": None,
+                      "actual_model": None,
+                  }
+
+              payload = {
+                  "model": provider["model"],
+                  "messages": [
+                      {
+                          "role": "user",
+                          "content": "Reply only OK."
+                      }
+                  ],
+                  "max_tokens": 40,
+                  "stream": False,
+              }
+
+              # NVIDIA GLM supports this and it avoids max reasoning effort.
+              if provider["id"] == "nvidia":
+                  payload["reasoning_effort"] = "low"
+
+              headers_tmp = tempfile.NamedTemporaryFile(delete=False)
+              body_tmp = tempfile.NamedTemporaryFile(delete=False)
+
+              headers_path = headers_tmp.name
+              body_path = body_tmp.name
+
+              headers_tmp.close()
+              body_tmp.close()
+
+              cmd = [
+                  "curl",
+                  "-sS",
+
+                  "--connect-timeout",
+                  str(CONNECT_TIMEOUT),
+
+                  "--max-time",
+                  str(REQUEST_TIMEOUT),
+
+                  "-D",
+                  headers_path,
+
+                  "-o",
+                  body_path,
+
+                  "-w",
+                  "%{http_code}\t%{time_starttransfer}\t%{time_total}",
+
+                  provider["url"],
+
+                  "-H",
+                  f"Authorization: Bearer {provider['key']}",
+
+                  "-H",
+                  "Content-Type: application/json",
+
+                  "-d",
+                  json.dumps(payload),
+              ]
+
+              started = time.monotonic()
+
+              try:
+                  result = subprocess.run(
+                      cmd,
+                      capture_output=True,
+                      text=True,
+                      timeout=REQUEST_TIMEOUT + 5,
+                  )
+
+                  wall_ms = round(
+                      (time.monotonic() - started) * 1000
+                  )
+
+              except subprocess.TimeoutExpired:
+                  return {
+                      "ts": ts,
+                      "provider": provider["id"],
+                      "name": provider["name"],
+                      "requested_model": provider["model"],
+                      "status": "timeout",
+                      "http": None,
+                      "latency_ms": REQUEST_TIMEOUT * 1000,
+                      "ttfb_ms": None,
+                      "actual_model": None,
+                      "error_code": "subprocess_timeout",
+                  }
+
+              try:
+                  raw_headers = Path(headers_path).read_text(
+                      errors="replace"
+                  )
+              except Exception:
+                  raw_headers = ""
+
+              try:
+                  raw_body = Path(body_path).read_text(
+                      errors="replace"
+                  )
+              except Exception:
+                  raw_body = ""
+
+              try:
+                  os.unlink(headers_path)
+              except Exception:
+                  pass
+
+              try:
+                  os.unlink(body_path)
+              except Exception:
+                  pass
+
+              metrics = result.stdout.strip().split("\t")
+
+              http = None
+              ttfb = None
+              total = None
+
+              if len(metrics) >= 3:
+                  http = safe_int(metrics[0])
+                  ttfb = safe_float(metrics[1])
+                  total = safe_float(metrics[2])
+
+              if http == 0:
+                  http = None
+
+              headers = parse_headers(raw_headers)
+
+              try:
+                  body = json.loads(raw_body)
+              except Exception:
+                  body = {}
+
+              actual_model = None
+              error_code = None
+              error_message = None
+
+              if isinstance(body, dict):
+                  actual_model = body.get("model")
+
+                  error = body.get("error")
+
+                  if isinstance(error, dict):
+                      error_code = error.get("code")
+                      error_message = error.get("message")
+
+              status = classify(
+                  http,
+                  error_code,
+                  error_message,
+              )
+
+              retry_after = safe_int(
+                  headers.get("retry-after")
+              )
+
+              rate_limit_limit = safe_int(
+                  headers.get("x-ratelimit-limit")
+              )
+
+              rate_limit_remaining = safe_int(
+                  headers.get("x-ratelimit-remaining")
+              )
+
+              rate_limit_reset = safe_int(
+                  headers.get("x-ratelimit-reset")
+              )
+
+              record = {
+                  "ts": ts,
+                  "provider": provider["id"],
+                  "name": provider["name"],
+
+                  "requested_model": provider["model"],
+                  "actual_model": actual_model,
+
+                  "status": status,
+                  "http": http,
+
+                  "latency_ms": (
+                      round(total * 1000)
+                      if total is not None
+                      else wall_ms
+                  ),
+
+                  "ttfb_ms": (
+                      round(ttfb * 1000)
+                      if ttfb is not None
+                      else None
+                  ),
+
+                  "retry_after": retry_after,
+
+                  "rate_limit_limit": rate_limit_limit,
+                  "rate_limit_remaining": rate_limit_remaining,
+                  "rate_limit_reset": rate_limit_reset,
+
+                  "error_code": error_code,
+              }
+
+              # Store truncated error text only.
+              # Never store authorization headers or API keys.
+              if error_message:
+                  record["error_message"] = error_message[:500]
+
+              if result.returncode != 0:
+                  record["curl_exit"] = result.returncode
+
+              return record
+
+
+          # ============================================================
+          # ONE PARALLEL HEARTBEAT
+          # ============================================================
+
+          def run_cycle(cycle_number):
+              started = time.monotonic()
+
+              print()
+              print("=" * 80)
+              print(
+                  f"InferencePulse heartbeat "
+                  f"{cycle_number}/{CYCLES} @ {iso_now()}"
+              )
+              print("=" * 80)
+
+              records = []
+
+              with ThreadPoolExecutor(
+                  max_workers=len(PROVIDERS)
+              ) as pool:
+
+                  futures = {
+                      pool.submit(probe, provider): provider
+                      for provider in PROVIDERS
+                  }
+
+                  for future in as_completed(futures):
+                      provider = futures[future]
+
+                      try:
+                          record = future.result()
+
+                      except Exception as exc:
+                          record = {
+                              "ts": iso_now(),
+                              "provider": provider["id"],
+                              "name": provider["name"],
+                              "requested_model": provider["model"],
+                              "actual_model": None,
+                              "status": "error",
+                              "http": None,
+                              "latency_ms": None,
+                              "ttfb_ms": None,
+                              "error_code": type(exc).__name__,
+                              "error_message": str(exc)[:500],
+                          }
+
+                      records.append(record)
+
+                      print(
+                          f"{record['name']:<12} "
+                          f"{record['status']:<14} "
+                          f"HTTP={str(record.get('http')):<4} "
+                          f"latency={record.get('latency_ms')}ms "
+                          f"ttfb={record.get('ttfb_ms')}ms"
+                      )
+
+              elapsed = time.monotonic() - started
+
+              print(
+                  f"Cycle completed in {elapsed:.1f}s"
+              )
+
+              return records
+
+
+          # ============================================================
+          # HISTORY STORAGE
+          # ============================================================
+
+          def history_path(dt):
+              return (
+                  HISTORY
+                  / dt.strftime("%Y")
+                  / dt.strftime("%m")
+                  / f"{dt.strftime('%d')}.jsonl"
+              )
+
+
+          def append_history(records):
+              now = utcnow()
+
+              path = history_path(now)
+              path.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+
+              with path.open(
+                  "a",
+                  encoding="utf-8"
+              ) as f:
+                  for record in records:
+                      f.write(
+                          json.dumps(
+                              record,
+                              separators=(",", ":"),
+                              ensure_ascii=False,
+                          )
+                          + "\n"
+                      )
+
+
+          # ============================================================
+          # READ RECENT HISTORY
+          # ============================================================
+
+          def read_recent(hours=24):
+              cutoff = utcnow() - timedelta(hours=hours)
+
+              records = []
+
+              # Need at most today + yesterday for 24h.
+              for offset in range(0, 2):
+                  day = utcnow() - timedelta(days=offset)
+                  path = history_path(day)
+
+                  if not path.exists():
+                      continue
+
+                  with path.open(
+                      "r",
+                      encoding="utf-8",
+                      errors="replace",
+                  ) as f:
+                      for line in f:
+                          line = line.strip()
+
+                          if not line:
+                              continue
+
+                          try:
+                              item = json.loads(line)
+                          except Exception:
+                              continue
+
+                          try:
+                              parsed = datetime.fromisoformat(
+                                  item["ts"].replace(
+                                      "Z",
+                                      "+00:00"
+                                  )
+                              )
+                          except Exception:
+                              continue
+
+                          if parsed >= cutoff:
+                              records.append(item)
+
+              return records
+
+
+          # ============================================================
+          # CURRENT.JSON
+          # ============================================================
+
+          def write_current(records):
+              latest = {}
+
+              for record in records:
+                  latest[record["provider"]] = record
+
+              data = {
+                  "project": "InferencePulse",
+                  "generated_at": iso_now(),
+                  "providers": latest,
+              }
+
+              CURRENT_FILE.write_text(
+                  json.dumps(
+                      data,
+                      indent=2,
+                      ensure_ascii=False,
+                  ),
+                  encoding="utf-8",
+              )
+
+
+          # ============================================================
+          # SUMMARY.JSON
+          # ============================================================
+
+          def percentile(values, pct):
+              if not values:
+                  return None
+
+              values = sorted(values)
+
+              idx = int(
+                  round(
+                      (len(values) - 1)
+                      * pct
+                  )
+              )
+
+              return values[idx]
+
+
+          def write_summary():
+              records = read_recent(24)
+
+              summary = {}
+
+              for provider in PROVIDERS:
+                  pid = provider["id"]
+
+                  rows = [
+                      r
+                      for r in records
+                      if r.get("provider") == pid
+                  ]
+
+                  total = len(rows)
+
+                  up_rows = [
+                      r for r in rows
+                      if r.get("status") == "up"
+                  ]
+
+                  limited_rows = [
+                      r for r in rows
+                      if r.get("status") == "rate_limited"
+                  ]
+
+                  latencies = [
+                      r["latency_ms"]
+                      for r in up_rows
+                      if isinstance(
+                          r.get("latency_ms"),
+                          (int, float),
+                      )
+                  ]
+
+                  last = rows[-1] if rows else None
+
+                  summary[pid] = {
+                      "name": provider["name"],
+                      "model": provider["model"],
+
+                      "checks": total,
+                      "successful_checks": len(up_rows),
+
+                      "success_pct": (
+                          round(
+                              len(up_rows)
+                              / total
+                              * 100,
+                              2,
+                          )
+                          if total
+                          else None
+                      ),
+
+                      "rate_limited_checks":
+                          len(limited_rows),
+
+                      "median_latency_ms": (
+                          percentile(latencies, 0.50)
+                      ),
+
+                      "p95_latency_ms": (
+                          percentile(latencies, 0.95)
+                      ),
+
+                      "current_status": (
+                          last.get("status")
+                          if last
+                          else "unknown"
+                      ),
+
+                      "last_check": (
+                          last.get("ts")
+                          if last
+                          else None
+                      ),
+                  }
+
+              SUMMARY_FILE.write_text(
+                  json.dumps(
+                      {
+                          "project": "InferencePulse",
+                          "window": "24h",
+                          "generated_at": iso_now(),
+                          "providers": summary,
+                      },
+                      indent=2,
+                      ensure_ascii=False,
+                  ),
+                  encoding="utf-8",
+              )
+
+
+          # ============================================================
+          # WEBSITE
+          # ============================================================
+
+          def write_site():
+              html = r'''<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>InferencePulse</title>
+
+            <style>
+              :root {
+                color-scheme: dark;
+                --bg: #090b10;
+                --card: #121620;
+                --border: #252b38;
+                --text: #f5f7fb;
+                --muted: #8f9bad;
+                --green: #38d996;
+                --yellow: #f4c95d;
+                --red: #ff6678;
+                --blue: #6ea8ff;
+              }
+
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                margin: 0;
+                font-family:
+                  Inter,
+                  ui-sans-serif,
+                  system-ui,
+                  -apple-system,
+                  BlinkMacSystemFont,
+                  "Segoe UI",
+                  sans-serif;
+                background: var(--bg);
+                color: var(--text);
+              }
+
+              main {
+                width: min(1100px, calc(100% - 32px));
+                margin: 0 auto;
+                padding: 64px 0;
+              }
+
+              h1 {
+                font-size: clamp(36px, 6vw, 64px);
+                margin: 0;
+                letter-spacing: -0.04em;
+              }
+
+              .subtitle {
+                color: var(--muted);
+                margin: 12px 0 40px;
+                font-size: 17px;
+              }
+
+              #overall {
+                border: 1px solid var(--border);
+                background: var(--card);
+                padding: 20px 24px;
+                border-radius: 14px;
+                margin-bottom: 20px;
+                font-weight: 700;
+              }
+
+              .grid {
+                display: grid;
+                grid-template-columns:
+                  repeat(auto-fit, minmax(240px, 1fr));
+                gap: 16px;
+              }
+
+              .card {
+                border: 1px solid var(--border);
+                background: var(--card);
+                border-radius: 14px;
+                padding: 20px;
+              }
+
+              .top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+              }
+
+              .name {
+                font-weight: 800;
+                font-size: 18px;
+              }
+
+              .status {
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                font-weight: 900;
+              }
+
+              .up { color: var(--green); }
+              .rate_limited { color: var(--yellow); }
+              .degraded { color: var(--yellow); }
+              .timeout { color: var(--red); }
+              .down { color: var(--red); }
+              .auth_error { color: var(--red); }
+              .unknown { color: var(--muted); }
+
+              .metric {
+                margin-top: 22px;
+                font-size: 32px;
+                font-weight: 900;
+                letter-spacing: -0.03em;
+              }
+
+              .metric-label,
+              .small {
+                color: var(--muted);
+                font-size: 13px;
+              }
+
+              .row {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 13px;
+                gap: 20px;
+              }
+
+              code {
+                color: var(--blue);
+                font-size: 12px;
+                overflow-wrap: anywhere;
+              }
+
+              footer {
+                color: var(--muted);
+                font-size: 13px;
+                margin-top: 40px;
+              }
+            </style>
+          </head>
+
+          <body>
+          <main>
+            <h1>InferencePulse</h1>
+
+            <div class="subtitle">
+              Live availability of free GLM-5.3-Flash inference routes.
+              Probed every minute from GitHub Actions.
+            </div>
+
+            <div id="overall">
+              Loading current status…
+            </div>
+
+            <div class="grid" id="grid"></div>
+
+            <footer id="footer"></footer>
+          </main>
+
+          <script>
+          const esc = value =>
+            String(value ?? "—")
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;");
+
+          async function load() {
+            const [currentResponse, summaryResponse] =
+              await Promise.all([
+                fetch(
+                  "data/current.json?x=" + Date.now()
+                ),
+                fetch(
+                  "data/summary.json?x=" + Date.now()
+                )
+              ]);
+
+            const current =
+              await currentResponse.json();
+
+            const summary =
+              await summaryResponse.json();
+
+            const providers =
+              summary.providers || {};
+
+            const latest =
+              current.providers || {};
+
+            const ids =
+              Object.keys(providers);
+
+            const up =
+              ids.filter(
+                id =>
+                  latest[id]?.status === "up"
+              ).length;
+
+            document.querySelector("#overall").innerHTML =
+              `<span class="${up === ids.length ? "up" : "degraded"}">
+                ${up}/${ids.length} providers responding
+              </span>`;
+
+            document.querySelector("#grid").innerHTML =
+              ids.map(id => {
+                const s = providers[id];
+                const c = latest[id] || {};
+
+                const success =
+                  s.success_pct == null
+                    ? "—"
+                    : `${s.success_pct}%`;
+
+                const latency =
+                  c.latency_ms == null
+                    ? "—"
+                    : `${c.latency_ms} ms`;
+
+                const status =
+                  c.status || "unknown";
+
+                return `
+                  <section class="card">
+                    <div class="top">
+                      <div class="name">
+                        ${esc(s.name)}
+                      </div>
+
+                      <div class="status ${esc(status)}">
+                        ${esc(status.replaceAll("_", " "))}
+                      </div>
+                    </div>
+
+                    <div class="metric">
+                      ${esc(success)}
+                    </div>
+
+                    <div class="metric-label">
+                      successful inference checks · 24h
+                    </div>
+
+                    <div class="row">
+                      <span class="small">
+                        Current latency
+                      </span>
+                      <strong>${esc(latency)}</strong>
+                    </div>
+
+                    <div class="row">
+                      <span class="small">
+                        Median
+                      </span>
+                      <strong>
+                        ${
+                          s.median_latency_ms == null
+                            ? "—"
+                            : esc(s.median_latency_ms + " ms")
+                        }
+                      </strong>
+                    </div>
+
+                    <div class="row">
+                      <span class="small">
+                        P95
+                      </span>
+                      <strong>
+                        ${
+                          s.p95_latency_ms == null
+                            ? "—"
+                            : esc(s.p95_latency_ms + " ms")
+                        }
+                      </strong>
+                    </div>
+
+                    <div class="row">
+                      <span class="small">
+                        Checks
+                      </span>
+                      <strong>${esc(s.checks)}</strong>
+                    </div>
+
+                    <div class="row">
+                      <span class="small">
+                        Rate limited
+                      </span>
+                      <strong>
+                        ${esc(s.rate_limited_checks)}
+                      </strong>
+                    </div>
+
+                    <div style="margin-top:18px">
+                      <code>${esc(s.model)}</code>
+                    </div>
+                  </section>
+                `;
+              }).join("");
+
+            document.querySelector("#footer").textContent =
+              "Last generated: " +
+              new Date(
+                current.generated_at
+              ).toLocaleString();
+          }
+
+          load();
+
+          setInterval(
+            load,
+            60_000
+          );
+          </script>
+
+          </body>
+          </html>
+          '''
+
+              (ROOT / "index.html").write_text(
+                  html,
+                  encoding="utf-8",
+              )
+
+
+          # ============================================================
+          # RUN
+          # ============================================================
+
+          DATA.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+          HISTORY.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+          latest_records = []
+
+          for cycle in range(1, CYCLES + 1):
+              cycle_started = time.monotonic()
+
+              records = run_cycle(cycle)
+
+              append_history(records)
+              latest_records = records
+
+              write_current(records)
+              write_summary()
+              write_site()
+
+              if cycle < CYCLES:
+                  elapsed = (
+                      time.monotonic()
+                      - cycle_started
+                  )
+
+                  sleep_for = max(
+                      0,
+                      SECONDS_BETWEEN_CYCLES - elapsed
+                  )
+
+                  print(
+                      f"Sleeping {sleep_for:.1f}s "
+                      "until next minute..."
+                  )
+
+                  time.sleep(sleep_for)
+
+          print()
+          print(
+              "InferencePulse heartbeat batch complete."
+          )
+          PY
+
+          python /tmp/inferencepulse.py
+
+      - name: Commit heartbeat data
+        shell: bash
+        run: |
+          git config user.name "InferencePulse Bot"
+          git config user.email "inferencepulse@users.noreply.github.com"
+
+          git add docs/
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "pulse: $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+            # In the unlikely case the branch changed during this
+            # five-minute run, rebase before pushing.
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Print site URL
+        run: |
+          echo "InferencePulse deployed:"
+          echo "${{ steps.deployment.outputs.page_url }}"
