@@ -982,6 +982,99 @@ jobs:
           SLO_TIMEOUT_PCT = 1.0
           SLO_P95_MS = 5000
 
+          # ============================================================
+          # QUOTA-AWARE PAID-EQUIVALENT MODEL - AGENTIC CODING
+          # ============================================================
+          # The heartbeat remains tiny. Capacity/value is modeled as if useful
+          # work were long agentic coding turns of 100K input + 20K output.
+          # A provider is capped by BOTH observed reliable request capacity and
+          # a published daily token quota when one is known. Unknown token quotas
+          # are never silently treated as confirmed unlimited capacity.
+          AGENTIC_INPUT_TOKENS = 100_000
+          AGENTIC_OUTPUT_TOKENS = 20_000
+          PRICE_INPUT_PER_M = 0.15
+          PRICE_OUTPUT_PER_M = 0.50
+          DAYS_PER_MONTH = 30
+
+          TOKEN_QUOTAS = {
+              "aihubmix": {
+                  "daily_tokens": 1_000_000,
+                  "status": "published",
+                  "label": "1M tokens/day",
+                  "source_url": "https://aihubmix.com/model/coding-glm-5.3-flash-free",
+              },
+              "unorouter": {
+                  "daily_tokens": None,
+                  "status": "unknown_shared_upstream",
+                  "label": "No per-user daily token quota published; upstream pool is shared",
+                  "source_url": "https://unorouter.com/en/blog/free-models-aggregated",
+              },
+              "orcarouter": {
+                  "daily_tokens": None,
+                  "status": "rate_limited_no_fixed_credit",
+                  "label": "Free use described as rate-limited; numeric token cap not published",
+                  "source_url": "https://www.orcarouter.ai/models/orcarouter/free",
+              },
+              "nvidia": {
+                  "daily_tokens": None,
+                  "status": "unknown",
+                  "label": "No verified daily token quota in InferencePulse",
+                  "source_url": None,
+              },
+          }
+
+          AGENTIC_VALUE_PER_REQUEST = (
+              AGENTIC_INPUT_TOKENS / 1_000_000 * PRICE_INPUT_PER_M
+              + AGENTIC_OUTPUT_TOKENS / 1_000_000 * PRICE_OUTPUT_PER_M
+          )
+
+          def paid_equivalent(pid, qph):
+              request_capacity_day = float(qph or 0) * 24
+              total_tokens = AGENTIC_INPUT_TOKENS + AGENTIC_OUTPUT_TOKENS
+              quota = TOKEN_QUOTAS[pid]
+              daily_token_quota = quota.get("daily_tokens")
+              token_limited_turns = (
+                  daily_token_quota / total_tokens
+                  if daily_token_quota is not None
+                  else None
+              )
+              if token_limited_turns is None:
+                  modeled_turns_day = request_capacity_day
+                  quota_verified = False
+                  limiting_factor = "request_capacity; token quota unknown"
+              else:
+                  modeled_turns_day = min(request_capacity_day, token_limited_turns)
+                  quota_verified = True
+                  limiting_factor = (
+                      "token_quota"
+                      if token_limited_turns < request_capacity_day
+                      else "request_capacity"
+                  )
+              usd_day = modeled_turns_day * AGENTIC_VALUE_PER_REQUEST
+              return {
+                  "assumed_input_tokens_per_request": AGENTIC_INPUT_TOKENS,
+                  "assumed_output_tokens_per_request": AGENTIC_OUTPUT_TOKENS,
+                  "assumed_total_tokens_per_request": total_tokens,
+                  "reference_input_usd_per_m": PRICE_INPUT_PER_M,
+                  "reference_output_usd_per_m": PRICE_OUTPUT_PER_M,
+                  "value_per_request_usd": round(AGENTIC_VALUE_PER_REQUEST, 6),
+                  "request_capacity_turns_per_day": round(request_capacity_day, 2),
+                  "published_daily_token_quota": daily_token_quota,
+                  "token_quota_status": quota["status"],
+                  "token_quota_label": quota["label"],
+                  "token_quota_source_url": quota.get("source_url"),
+                  "token_limited_turns_per_day": (
+                      round(token_limited_turns, 2)
+                      if token_limited_turns is not None else None
+                  ),
+                  "quota_verified": quota_verified,
+                  "limiting_factor": limiting_factor,
+                  "modeled_agentic_turns_per_day": round(modeled_turns_day, 2),
+                  "modeled_tokens_per_day": round(modeled_turns_day * total_tokens),
+                  "usd_per_day": round(usd_day, 2),
+                  "usd_per_30d": round(usd_day * DAYS_PER_MONTH, 2),
+              }
+
           def pct(n, d):
               return round(n / d * 100, 2) if d else None
 
@@ -1328,6 +1421,8 @@ jobs:
                   "tested_qph": round(observed_qph, 2),
                   "predicted_reliable_qph":
                       round(predicted_qph, 2),
+                  "paid_equivalent_agentic":
+                      paid_equivalent(pid, predicted_qph),
                   "all_time_checks": all_count,
                   "all_time_success_pct": success_all_pct,
                   "all_time_429_pct": limited_all_pct,
@@ -1417,6 +1512,25 @@ jobs:
               2,
           )
 
+          # Two economic totals are intentional:
+          # - modeled: includes providers whose token quota is unknown, clearly flagged
+          # - quota_verified: only providers with a numeric published token quota
+          modeled_usd_day = round(sum(
+              s["paid_equivalent_agentic"]["usd_per_day"]
+              for s in summary.values()
+          ), 2)
+          modeled_usd_30d = round(modeled_usd_day * DAYS_PER_MONTH, 2)
+          verified_usd_day = round(sum(
+              s["paid_equivalent_agentic"]["usd_per_day"]
+              for s in summary.values()
+              if s["paid_equivalent_agentic"]["quota_verified"]
+          ), 2)
+          verified_usd_30d = round(verified_usd_day * DAYS_PER_MONTH, 2)
+          modeled_turns_day = round(sum(
+              s["paid_equivalent_agentic"]["modeled_agentic_turns_per_day"]
+              for s in summary.values()
+          ), 2)
+
           SUMMARY.write_text(
               json.dumps(
                   {
@@ -1425,6 +1539,13 @@ jobs:
                       "generated_at": iso(),
                       "headline": {
                           "predicted_reliable_qph": headline_qph,
+                          "paid_equivalent_agentic": {
+                              "modeled_agentic_turns_per_day": modeled_turns_day,
+                              "usd_per_day": modeled_usd_day,
+                              "usd_per_30d": modeled_usd_30d,
+                              "quota_verified_usd_per_day": verified_usd_day,
+                              "quota_verified_usd_per_30d": verified_usd_30d,
+                          },
                           "providers_meeting_slo": sum(
                               bool(s.get("meets_slo"))
                               for s in summary.values()
@@ -1440,6 +1561,21 @@ jobs:
                           "note":
                               "InferencePulse objectives; objective source "
                               "is shown per provider.",
+                      },
+                      "paid_equivalent_policy": {
+                          "workload": "agentic coding",
+                          "input_tokens_per_request": AGENTIC_INPUT_TOKENS,
+                          "output_tokens_per_request": AGENTIC_OUTPUT_TOKENS,
+                          "input_usd_per_m": PRICE_INPUT_PER_M,
+                          "output_usd_per_m": PRICE_OUTPUT_PER_M,
+                          "days_per_month": DAYS_PER_MONTH,
+                          "note": (
+                              "Heavy-agent model: 100K input + 20K output per turn. "
+                              "Known numeric token quotas cap modeled turns. Providers "
+                              "with unknown token quotas remain estimates and are not "
+                              "included in the quota-verified dollar subtotal."
+                          ),
+                          "token_quotas": TOKEN_QUOTAS,
                       },
                       "providers": summary,
                   },
@@ -1487,7 +1623,7 @@ jobs:
           :root{color-scheme:dark;--bg:#080a0f;--card:#111620;--card2:#0d1119;--border:#252d3b;--text:#f5f7fb;--muted:#8d99aa;--green:#3dde9d;--yellow:#f1c75b;--red:#ff6678;--blue:#72a7ff}
           *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif}
           main{width:min(1240px,calc(100% - 28px));margin:auto;padding:48px 0 80px}h1{font-size:clamp(38px,6vw,64px);letter-spacing:-.05em;margin:0}.subtitle{color:var(--muted);font-size:16px;margin:8px 0 28px}
-          .hero,.provider{border:1px solid var(--border);background:var(--card);border-radius:16px}.hero{padding:28px;margin-bottom:18px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-size:11px;font-weight:800}.hero-num{font-size:clamp(64px,12vw,112px);line-height:.95;font-weight:900;letter-spacing:-.06em;margin:10px 0}.hero-sub{display:flex;gap:24px;flex-wrap:wrap;color:var(--muted)}
+          .hero,.provider{border:1px solid var(--border);background:var(--card);border-radius:16px}.hero{padding:28px;margin-bottom:18px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-size:11px;font-weight:800}.hero-num{font-size:clamp(64px,12vw,112px);line-height:.95;font-weight:900;letter-spacing:-.06em;margin:10px 0}.hero-sub{display:flex;gap:24px;flex-wrap:wrap;color:var(--muted)}.value{font-size:32px;font-weight:900;margin-top:8px}.money{color:var(--green)}
           .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}.mini{padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--card2)}.mini strong{display:block;font-size:28px;margin-top:5px}
           .provider{margin:18px 0;overflow:hidden}.head{padding:22px;display:grid;grid-template-columns:1fr auto;gap:16px}.head h2{margin:0;font-size:24px}.qph{font-size:40px;font-weight:900}.meta{color:var(--muted);margin-top:5px}.pass,.up{color:var(--green)}.fail,.timeout,.down,.auth_error{color:var(--red)}.rate_limited,.degraded{color:var(--yellow)}
           .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}.metric{background:var(--card2);padding:14px}.metric b{display:block;font-size:19px;margin-top:4px}
@@ -1497,16 +1633,17 @@ jobs:
           </style></head><body><main>
           <h1>InferencePulse</h1>
           <div class="subtitle">Reliable free GLM-5.3-Flash capacity, audited against rate-limit and availability objectives.</div>
-          <section class="hero"><div class="eyebrow">Predicted reliable requests / hour</div><div class="hero-num" id="headline">—</div><div class="hero-sub" id="heroSub"></div></section>
+          <section class="hero"><div class="eyebrow">Predicted reliable requests / hour</div><div class="hero-num" id="headline">—</div><div class="eyebrow">Modeled paid equivalent · agentic coding</div><div class="value money" id="paidValue">—</div><div class="hero-sub" id="heroSub"></div><p class="note" id="valueNote"></p></section>
           <div class="grid" id="capacity"></div><div id="providers"></div><footer id="footer"></footer>
           </main><script>
           const e=x=>String(x??"—").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
           const n=x=>x==null?"—":Number(x).toLocaleString(undefined,{maximumFractionDigits:2});
+          const usd=x=>x==null?"—":Number(x).toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:2});
           const dur=s=>s==null?"—":s<120?s+"s":s<7200?Math.round(s/60)+"m":(s/3600).toFixed(1)+"h";
           function timeline(rows){const a=rows.slice(-240);return a.length?'<div class="bars">'+a.map(r=>`<i class="bar ${e(r.status)}" title="${e(r.ts)} · ${e(r.status)} · HTTP ${e(r.http)}"></i>`).join("")+'</div>':'<p class="note">No history yet.</p>'}
           function incidents(x,label){const a=x.incidents||[];return `<p><b>${label}</b> · ${n(x.count)} incidents · median ${dur(x.median_duration_seconds)} · P95 ${dur(x.p95_duration_seconds)} · longest ${dur(x.longest_duration_seconds)}</p>`+(a.length?`<table><thead><tr><th>Start</th><th>End</th><th>Duration</th><th>Checks</th></tr></thead><tbody>${a.slice().reverse().map(i=>`<tr><td>${e(i.start)}</td><td>${e(i.end)}</td><td>${dur(i.duration_seconds)}</td><td>${n(i.checks)}</td></tr>`).join("")}</tbody></table>`:"")}
-          function card(id,s,m,h){const labels={success:"Successful requests",rate_limit:"Rate limited",timeout:"Timeouts",p95_latency:"P95 latency"};const slos=Object.entries(s.slo).map(([k,v])=>`<div class="slo"><span>${labels[k]}</span><span>Target ${e(v.target)}</span><span>Observed ${n(v.actual)}${k==="p95_latency"?" ms":"%"}</span><b class="${v.pass?"pass":"fail"}">${v.pass?"PASS":"FAIL"}</b></div>`).join("");return `<section class="provider"><div class="head"><div><h2>${e(s.name)} <span class="${s.meets_slo?"pass":"fail"}">${s.meets_slo?"SLO PASS":"SLO FAIL"}</span></h2><div class="meta">${e(s.model)} · ${e(s.objective.label)} · ${e(s.objective.source)} objective</div></div><div><div class="eyebrow">Predicted reliable QPH</div><div class="qph">${n(s.predicted_reliable_qph)}</div><div class="${e(s.current_status)}">${e(s.current_status)} now</div></div></div><div class="metrics"><div class="metric"><span class="eyebrow">Tested load</span><b>${n(s.tested_qph)}/h</b></div><div class="metric"><span class="eyebrow">All-time success</span><b>${n(s.all_time_success_pct)}%</b></div><div class="metric"><span class="eyebrow">429</span><b>${n(s.all_time_429_pct)}%</b></div><div class="metric"><span class="eyebrow">Timeout</span><b>${n(s.all_time_timeout_pct)}%</b></div><div class="metric"><span class="eyebrow">P95 latency</span><b>${n(s.all_time_p95_latency_ms)} ms</b></div><div class="metric"><span class="eyebrow">Evidence</span><b>${n(s.all_time_checks)}</b></div></div><div class="slos"><div class="eyebrow">Service-level objectives · all retained history</div>${slos}</div><div class="timeline"><div class="eyebrow">Recent observations</div>${timeline(m)}</div><details><summary>Rate-limit incident history (${n(s.rate_limit_incidents.count)})</summary><div class="body">${incidents(s.rate_limit_incidents,"HTTP 429")}</div></details><details><summary>Timeout incident history (${n(s.timeout_incidents.count)})</summary><div class="body">${incidents(s.timeout_incidents,"Timeout")}</div></details><details><summary>Hourly capacity history</summary><div class="body"><table><thead><tr><th>Hour</th><th>Attempts</th><th>Success</th><th>429</th><th>Timeout</th><th>Predicted reliable QPH</th><th>SLO</th></tr></thead><tbody>${h.slice().reverse().map(x=>`<tr><td>${e(x.hour)}</td><td>${n(x.attempts)}</td><td>${n(x.successes)}</td><td>${n(x.rate_limited)}</td><td>${n(x.timeouts)}</td><td>${n(x.predicted_reliable_qph)}</td><td class="${x.meets_slo?"pass":"fail"}">${x.meets_slo?"PASS":"FAIL"}</td></tr>`).join("")}</tbody></table></div></details><details><summary>Every historical measurement (${m.length})</summary><div class="body"><table><thead><tr><th>Time</th><th>Status</th><th>HTTP</th><th>Latency</th><th>Retry-after</th><th>Remaining</th><th>Run</th></tr></thead><tbody>${m.slice().reverse().map(r=>`<tr><td>${e(r.ts)}</td><td class="${e(r.status)}">${e(r.status)}</td><td>${e(r.http)}</td><td>${n(r.latency_ms)} ms</td><td>${e(r.retry_after)}</td><td>${e(r.rate_limit_remaining)}</td><td>${e(r.run_id)}</td></tr>`).join("")}</tbody></table></div></details></section>`}
-          async function load(){const t=Date.now();const [s,m,h]=await Promise.all([fetch(`data/summary.json?${t}`).then(r=>r.json()),fetch(`data/measurements.json?${t}`).then(r=>r.json()),fetch(`data/hourly.json?${t}`).then(r=>r.json())]);document.querySelector("#headline").textContent=n(s.headline.predicted_reliable_qph);document.querySelector("#heroSub").innerHTML=`<span><b>${s.headline.providers_meeting_slo}/${s.headline.provider_count}</b> providers meet SLO</span><span><b>${n(s.headline.historical_measurements)}</b> historical measurements</span>`;document.querySelector("#capacity").innerHTML=Object.entries(s.providers).map(([id,p])=>`<div class="mini"><span class="eyebrow">${e(p.name)}</span><strong>${n(p.predicted_reliable_qph)} req/h</strong><span class="${p.meets_slo?"pass":"fail"}">${p.meets_slo?"MEETS SLO":"FAILS SLO"}</span></div>`).join("");document.querySelector("#providers").innerHTML=Object.entries(s.providers).map(([id,p])=>card(id,p,m.providers[id]||[],h.providers[id]||[])).join("");document.querySelector("#footer").textContent="Updated "+new Date(s.generated_at).toLocaleString()+" · SLO thresholds are InferencePulse objectives unless the provider objective is marked published."}
+          function card(id,s,m,h){const labels={success:"Successful requests",rate_limit:"Rate limited",timeout:"Timeouts",p95_latency:"P95 latency"};const slos=Object.entries(s.slo).map(([k,v])=>`<div class="slo"><span>${labels[k]}</span><span>Target ${e(v.target)}</span><span>Observed ${n(v.actual)}${k==="p95_latency"?" ms":"%"}</span><b class="${v.pass?"pass":"fail"}">${v.pass?"PASS":"FAIL"}</b></div>`).join("");return `<section class="provider"><div class="head"><div><h2>${e(s.name)} <span class="${s.meets_slo?"pass":"fail"}">${s.meets_slo?"SLO PASS":"SLO FAIL"}</span></h2><div class="meta">${e(s.model)} · ${e(s.objective.label)} · ${e(s.objective.source)} objective</div></div><div><div class="eyebrow">Predicted reliable QPH</div><div class="qph">${n(s.predicted_reliable_qph)}</div><div class="${e(s.current_status)}">${e(s.current_status)} now</div></div></div><div class="metrics"><div class="metric"><span class="eyebrow">Heavy turns / day</span><b>${n(s.paid_equivalent_agentic?.modeled_agentic_turns_per_day)}</b></div><div class="metric"><span class="eyebrow">Agentic value / 30d</span><b class="money">${usd(s.paid_equivalent_agentic?.usd_per_30d)}</b></div><div class="metric"><span class="eyebrow">Modeled tokens / day</span><b>${n(s.paid_equivalent_agentic?.modeled_tokens_per_day)}</b></div><div class="metric"><span class="eyebrow">Capacity limiter</span><b>${e(s.paid_equivalent_agentic?.limiting_factor)}</b></div><div class="metric"><span class="eyebrow">Tested load</span><b>${n(s.tested_qph)}/h</b></div><div class="metric"><span class="eyebrow">All-time success</span><b>${n(s.all_time_success_pct)}%</b></div><div class="metric"><span class="eyebrow">429</span><b>${n(s.all_time_429_pct)}%</b></div><div class="metric"><span class="eyebrow">Timeout</span><b>${n(s.all_time_timeout_pct)}%</b></div><div class="metric"><span class="eyebrow">P95 latency</span><b>${n(s.all_time_p95_latency_ms)} ms</b></div><div class="metric"><span class="eyebrow">Evidence</span><b>${n(s.all_time_checks)}</b></div></div><div class="slos"><div class="eyebrow">Service-level objectives · all retained history</div>${slos}</div><div class="timeline"><div class="eyebrow">Recent observations</div>${timeline(m)}</div><details><summary>Rate-limit incident history (${n(s.rate_limit_incidents.count)})</summary><div class="body">${incidents(s.rate_limit_incidents,"HTTP 429")}</div></details><details><summary>Timeout incident history (${n(s.timeout_incidents.count)})</summary><div class="body">${incidents(s.timeout_incidents,"Timeout")}</div></details><details><summary>Hourly capacity history</summary><div class="body"><table><thead><tr><th>Hour</th><th>Attempts</th><th>Success</th><th>429</th><th>Timeout</th><th>Predicted reliable QPH</th><th>SLO</th></tr></thead><tbody>${h.slice().reverse().map(x=>`<tr><td>${e(x.hour)}</td><td>${n(x.attempts)}</td><td>${n(x.successes)}</td><td>${n(x.rate_limited)}</td><td>${n(x.timeouts)}</td><td>${n(x.predicted_reliable_qph)}</td><td class="${x.meets_slo?"pass":"fail"}">${x.meets_slo?"PASS":"FAIL"}</td></tr>`).join("")}</tbody></table></div></details><details><summary>Every historical measurement (${m.length})</summary><div class="body"><table><thead><tr><th>Time</th><th>Status</th><th>HTTP</th><th>Latency</th><th>Retry-after</th><th>Remaining</th><th>Run</th></tr></thead><tbody>${m.slice().reverse().map(r=>`<tr><td>${e(r.ts)}</td><td class="${e(r.status)}">${e(r.status)}</td><td>${e(r.http)}</td><td>${n(r.latency_ms)} ms</td><td>${e(r.retry_after)}</td><td>${e(r.rate_limit_remaining)}</td><td>${e(r.run_id)}</td></tr>`).join("")}</tbody></table></div></details></section>`}
+          async function load(){const t=Date.now();const [s,m,h]=await Promise.all([fetch(`data/summary.json?${t}`).then(r=>r.json()),fetch(`data/measurements.json?${t}`).then(r=>r.json()),fetch(`data/hourly.json?${t}`).then(r=>r.json())]);document.querySelector("#headline").textContent=n(s.headline.predicted_reliable_qph);const pe=s.headline.paid_equivalent_agentic||{};const pp=s.paid_equivalent_policy||{};document.querySelector("#paidValue").textContent=`${usd(pe.usd_per_day)} / day · ${usd(pe.usd_per_30d)} / 30d`;document.querySelector("#valueNote").textContent=`Heavy agent: ${n(pp.input_tokens_per_request)} input + ${n(pp.output_tokens_per_request)} output tokens/turn. Quota-verified subtotal: ${usd(pe.quota_verified_usd_per_30d)} / 30d. Unknown provider token quotas remain modeled estimates.`;document.querySelector("#heroSub").innerHTML=`<span><b>${s.headline.providers_meeting_slo}/${s.headline.provider_count}</b> providers meet SLO</span><span><b>${n(s.headline.historical_measurements)}</b> historical measurements</span>`;document.querySelector("#capacity").innerHTML=Object.entries(s.providers).map(([id,p])=>`<div class="mini"><span class="eyebrow">${e(p.name)}</span><strong>${n(p.predicted_reliable_qph)} req/h</strong><span class="${p.meets_slo?"pass":"fail"}">${p.meets_slo?"MEETS SLO":"FAILS SLO"}</span></div>`).join("");document.querySelector("#providers").innerHTML=Object.entries(s.providers).map(([id,p])=>card(id,p,m.providers[id]||[],h.providers[id]||[])).join("");document.querySelector("#footer").textContent="Updated "+new Date(s.generated_at).toLocaleString()+" · SLO thresholds are InferencePulse objectives unless the provider objective is marked published."}
           load();setInterval(load,60000);
           </script></body></html>
           '''
