@@ -1,19 +1,19 @@
 {
   "project": "InferencePulse",
   "window": "24h + all-time SLO evidence",
-  "generated_at": "2026-10-11T13:01:00.932782Z",
+  "generated_at": "2026-10-11T13:22:53.895106Z",
   "headline": {
-    "predicted_reliable_qph": 18.53,
+    "predicted_reliable_qph": 18.55,
     "paid_equivalent_agentic": {
-      "modeled_agentic_turns_per_day": 353.08,
-      "usd_per_day": 8.83,
-      "usd_per_30d": 264.9,
+      "modeled_agentic_turns_per_day": 353.32,
+      "usd_per_day": 8.84,
+      "usd_per_30d": 265.2,
       "quota_verified_usd_per_day": 0.21,
       "quota_verified_usd_per_30d": 6.3
     },
     "providers_meeting_slo": 1,
     "provider_count": 4,
-    "historical_measurements": 9428
+    "historical_measurements": 9448
   },
   "slo_policy": {
     "success_pct": 99.0,
@@ -98,7 +98,7 @@
         "usd_per_day": 0.21,
         "usd_per_30d": 6.25
       },
-      "all_time_checks": 2357,
+      "all_time_checks": 2362,
       "all_time_success_pct": 100.0,
       "all_time_429_pct": 0.0,
       "all_time_timeout_pct": 0.0,
@@ -141,7 +141,7 @@
         "incidents": []
       },
       "current_status": "up",
-      "last_check": "2026-10-11T13:00:44.933349Z"
+      "last_check": "2026-10-11T13:22:39.804945Z"
     },
     "unorouter": {
       "name": "UnoRouter",
@@ -170,7 +170,7 @@
         "reference_input_usd_per_m": 0.15,
         "reference_output_usd_per_m": 0.5,
         "value_per_request_usd": 0.025,
-        "request_capacity_turns_per_day": 80.48,
+        "request_capacity_turns_per_day": 80.31,
         "published_daily_token_quota": null,
         "token_quota_status": "unknown_shared_upstream",
         "token_quota_label": "No per-user daily token quota published; upstream pool is shared",
@@ -178,30 +178,30 @@
         "token_limited_turns_per_day": null,
         "quota_verified": false,
         "limiting_factor": "request_capacity; token quota unknown",
-        "modeled_agentic_turns_per_day": 80.48,
-        "modeled_tokens_per_day": 9657836,
+        "modeled_agentic_turns_per_day": 80.31,
+        "modeled_tokens_per_day": 9637392,
         "usd_per_day": 2.01,
-        "usd_per_30d": 60.36
+        "usd_per_30d": 60.23
       },
-      "all_time_checks": 2357,
-      "all_time_success_pct": 17.65,
-      "all_time_429_pct": 20.03,
-      "all_time_timeout_pct": 8.19,
+      "all_time_checks": 2362,
+      "all_time_success_pct": 17.61,
+      "all_time_429_pct": 19.98,
+      "all_time_timeout_pct": 8.17,
       "all_time_p95_latency_ms": 14208,
       "slo": {
         "success": {
           "target": ">= 99%",
-          "actual": 17.65,
+          "actual": 17.61,
           "pass": false
         },
         "rate_limit": {
           "target": "<= 1%",
-          "actual": 20.03,
+          "actual": 19.98,
           "pass": false
         },
         "timeout": {
           "target": "<= 1%",
-          "actual": 8.19,
+          "actual": 8.17,
           "pass": false
         },
         "p95_latency": {
@@ -1427,8 +1427,8 @@
           }
         ]
       },
-      "current_status": "rate_limited",
-      "last_check": "2026-10-11T13:00:44.933608Z"
+      "current_status": "down",
+      "last_check": "2026-10-11T13:22:39.805139Z"
     },
     "orcarouter": {
       "name": "OrcaRouter",
@@ -1457,7 +1457,7 @@
         "reference_input_usd_per_m": 0.15,
         "reference_output_usd_per_m": 0.5,
         "value_per_request_usd": 0.025,
-        "request_capacity_turns_per_day": 71.58,
+        "request_capacity_turns_per_day": 71.43,
         "published_daily_token_quota": null,
         "token_quota_status": "rate_limited_no_fixed_credit",
         "token_quota_label": "Free use described as rate-limited; numeric token cap not published",
@@ -1465,25 +1465,25 @@
         "token_limited_turns_per_day": null,
         "quota_verified": false,
         "limiting_factor": "request_capacity; token quota unknown",
-        "modeled_agentic_turns_per_day": 71.58,
-        "modeled_tokens_per_day": 8589902,
+        "modeled_agentic_turns_per_day": 71.43,
+        "modeled_tokens_per_day": 8571719,
         "usd_per_day": 1.79,
-        "usd_per_30d": 53.69
+        "usd_per_30d": 53.57
       },
-      "all_time_checks": 2357,
-      "all_time_success_pct": 15.7,
-      "all_time_429_pct": 84.09,
+      "all_time_checks": 2362,
+      "all_time_success_pct": 15.66,
+      "all_time_429_pct": 84.12,
       "all_time_timeout_pct": 0.21,
       "all_time_p95_latency_ms": 4082,
       "slo": {
         "success": {
           "target": ">= 99%",
-          "actual": 15.7,
+          "actual": 15.66,
           "pass": false
         },
         "rate_limit": {
           "target": "<= 1%",
-          "actual": 84.09,
+          "actual": 84.12,
           "pass": false
         },
         "timeout": {
@@ -1499,17 +1499,11 @@
       },
       "meets_slo": false,
       "rate_limit_incidents": {
-        "count": 395,
+        "count": 396,
         "median_duration_seconds": 300,
         "p95_duration_seconds": 300,
         "longest_duration_seconds": 1161,
         "incidents": [
-          {
-            "start": "2026-10-09T22:57:07.605317Z",
-            "end": "2026-10-09T23:01:07.605798Z",
-            "duration_seconds": 300,
-            "checks": 5
-          },
           {
             "start": "2026-10-09T23:17:08.315321Z",
             "end": "2026-10-09T23:21:08.315990Z",
@@ -2103,6 +2097,12 @@
             "end": "2026-10-11T13:00:44.933858Z",
             "duration_seconds": 300,
             "checks": 5
+          },
+          {
+            "start": "2026-10-11T13:18:39.804759Z",
+            "end": "2026-10-11T13:22:39.805398Z",
+            "duration_seconds": 300,
+            "checks": 5
           }
         ]
       },
@@ -2121,18 +2121,18 @@
         ]
       },
       "current_status": "rate_limited",
-      "last_check": "2026-10-11T13:00:44.933858Z"
+      "last_check": "2026-10-11T13:22:39.805398Z"
     },
     "nvidia": {
       "name": "NVIDIA NIM",
       "model": "z-ai/glm-5.3-flash",
       "checks": 385,
-      "successful_checks": 375,
-      "success_pct": 97.4,
+      "successful_checks": 376,
+      "success_pct": 97.66,
       "rate_limited_checks": 0,
       "degraded_checks": 0,
-      "timeout_checks": 10,
-      "median_latency_ms": 514,
+      "timeout_checks": 9,
+      "median_latency_ms": 518,
       "p95_latency_ms": 2733,
       "observed_minutes": 385,
       "coverage_pct": 26.74,
@@ -2142,7 +2142,7 @@
         "source": "published"
       },
       "tested_qph": 19.0,
-      "predicted_reliable_qph": 8.03,
+      "predicted_reliable_qph": 8.05,
       "paid_equivalent_agentic": {
         "assumed_input_tokens_per_request": 100000,
         "assumed_output_tokens_per_request": 20000,
@@ -2150,7 +2150,7 @@
         "reference_input_usd_per_m": 0.15,
         "reference_output_usd_per_m": 0.5,
         "value_per_request_usd": 0.025,
-        "request_capacity_turns_per_day": 192.69,
+        "request_capacity_turns_per_day": 193.25,
         "published_daily_token_quota": null,
         "token_quota_status": "unknown",
         "token_quota_label": "No verified daily token quota in InferencePulse",
@@ -2158,20 +2158,20 @@
         "token_limited_turns_per_day": null,
         "quota_verified": false,
         "limiting_factor": "request_capacity; token quota unknown",
-        "modeled_agentic_turns_per_day": 192.69,
-        "modeled_tokens_per_day": 23123089,
-        "usd_per_day": 4.82,
-        "usd_per_30d": 144.52
+        "modeled_agentic_turns_per_day": 193.25,
+        "modeled_tokens_per_day": 23189975,
+        "usd_per_day": 4.83,
+        "usd_per_30d": 144.94
       },
-      "all_time_checks": 2357,
-      "all_time_success_pct": 42.26,
+      "all_time_checks": 2362,
+      "all_time_success_pct": 42.38,
       "all_time_429_pct": 0.0,
-      "all_time_timeout_pct": 57.74,
+      "all_time_timeout_pct": 57.62,
       "all_time_p95_latency_ms": 21409,
       "slo": {
         "success": {
           "target": ">= 99%",
-          "actual": 42.26,
+          "actual": 42.38,
           "pass": false
         },
         "rate_limit": {
@@ -2181,7 +2181,7 @@
         },
         "timeout": {
           "target": "<= 1%",
-          "actual": 57.74,
+          "actual": 57.62,
           "pass": false
         },
         "p95_latency": {
@@ -2807,7 +2807,7 @@
         ]
       },
       "current_status": "up",
-      "last_check": "2026-10-11T13:00:44.934310Z"
+      "last_check": "2026-10-11T13:22:39.805643Z"
     }
   }
 }
